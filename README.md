@@ -2,21 +2,22 @@
 
 *meiryo* (明瞭) is Japanese for "clear, easy to understand".
 
-A small command line parser for [Goose](https://github.com/aardappel/goose).
-The options are written as a spec, in the form `--help` prints them, and
-read into a struct with one field per option. Values are slices into
-`argv`, so nothing is copied.
+meiryo is a small command line parser for
+[Goose](https://github.com/aardappel/goose). You write the options as a
+spec that looks like the output of `--help`, and meiryo reads the arguments
+into a struct with one field per option. Values are slices into `argv`;
+meiryo copies a value only when a field's type asks for a copy.
 
 ## Using it
 
-Declare the package in your program's root file:
+Import the package in your program's root file:
 
 ```goose
 import meiryo from "github.com/johmaru/goose-meiryo@<tag>";  // once it is published
 import meiryo from "../path/to/this/directory";               // or a local checkout
 ```
 
-Then:
+A minimal program:
 
 ```goose
 import std;
@@ -64,25 +65,25 @@ fn main() {
 
 ## The spec
 
-One option per line:
+Each line of the spec describes one option:
 
 ```
 [-x, ]--long[ <VALUE>][ help text]
 ```
 
-* `--long` is required; `-x, ` gives it a short name too.
-* `<VALUE>` makes the option take a value, shown under that name in the
-  help.
-* Leading spaces and blank lines are ignored, so a `"""` raw string can be
-  indented with the code.
-* The `Opt`s that `parse_spec` returns are slices of the spec, so the spec
-  must outlive them. A string literal always does.
+* `--long` is required. `-x, ` adds a short name.
+* `<VALUE>` makes the option take a value. The help shows the value under
+  that name.
+* meiryo ignores leading spaces and blank lines, so you can indent a `"""`
+  raw string with the code around it.
+* Because the `Opt`s that `parse_spec` returns are slices of the spec, the
+  spec must outlive them. A string literal always does.
 
 ## The struct
 
-Each field is named after its option, with `-` in the option written `_`
-in the field (`--dry-run` fills `dry_run`). A field keeps its value when its
-option is not given, so give every field a default.
+Each field has the name of its option, with every `-` written as `_`:
+`--dry-run` fills `dry_run`. A field keeps its value when its option is
+absent, so give every field a default.
 
 | Field type | Option | Value stored |
 |---|---|---|
@@ -92,24 +93,25 @@ option is not given, so give every field a default.
 | `const u8[:]` | takes a value | the text, a slice of `argv` |
 | `u8[>..]` | takes a value | a copy of the text |
 
-A field of another type is a compile error. Given more than once, an
-option keeps its last value. A `const u8[:]` field holds a slice of `argv`,
+A field of any other type is a compile error. An option given more than
+once keeps its last value. A `const u8[:]` field holds a slice of `argv`,
 so declare the struct after `argv`.
 
-Positional arguments are pushed onto the last argument of `parse_into`.
-Leave it out for a program that takes none: a positional argument is then
-an `UnexpectedArgument` error.
+`parse_into` pushes positional arguments onto its last argument. A program
+that takes no positional arguments may leave that argument out; a
+positional argument is then an `UnexpectedArgument` error.
 
 ## Mistakes in the program
 
-These abort with a message naming the option, field or spec line, since
-they are bugs in the program rather than in its arguments:
+Because these are bugs in the program, not in its arguments, meiryo aborts
+with a message that names the option, field, or spec line:
 
 * a spec line not in the form above;
-* an empty long name, a long name holding `=`, or a short name that is not
-  a visible ASCII character, or is `-` or `=`;
+* an empty long name, or a long name that contains `=`;
+* a short name that is not a visible ASCII character, or is `-` or `=`;
 * a field with no option in the spec, or an option with no field;
-* a `<VALUE>` on the spec line of a `bool` field, or none on another.
+* a `bool` field whose spec line has a `<VALUE>`, or a field of another
+  type whose spec line has none.
 
 ## Accepted forms
 
@@ -125,18 +127,17 @@ they are bugs in the program rather than in its arguments:
 | `--` | everything after it is positional |
 | `-`, or anything not starting with `-` | a positional argument |
 
-An option that takes a value always takes the next argument, even one
-starting with `-`: `--frames --silent` gives `--frames` the value
-`--silent`.
+An option that takes a value always takes the next argument, even when it
+starts with `-`: `--frames --silent` gives `--frames` the value `--silent`.
 
-Only the first `=` separates the name from the value, so a value that
-starts with `=` is written `--frames==3` or `-f==3` (both give `=3`), as
-with clap.
+Only the first `=` separates the name from the value. To pass a value that
+starts with `=`, write `--frames==3` or `-f==3`; both give `=3`, as clap
+does.
 
 ## The lower level: each_arg
 
-When a struct does not fit, for example for an option that may be given
-many times, `each_arg` calls a block for each argument instead:
+When a struct does not fit, such as for an option given many times,
+`each_arg` calls a block for each argument:
 
 ```goose
 let result = meiryo::each_arg(argv, opts) { opt_index, value =>
@@ -148,15 +149,16 @@ let result = meiryo::each_arg(argv, opts) { opt_index, value =>
 };
 ```
 
-`opts` can come from `parse_spec` or be written as a table of `meiryo::Opt`.
-`each_arg_checked` is the same with a block that returns a `bool`: `false`
-rejects the value (`BadValue`) or the positional argument
+`opts` may come from `parse_spec` or be a table of `meiryo::Opt` written by
+hand. `each_arg_checked` works the same way, but its block returns a
+`bool`: `false` rejects the value (`BadValue`) or the positional argument
 (`UnexpectedArgument`). `examples/each_arg.goose` is a complete program.
 
 ## Subcommands
 
-For a program with commands, like `git remote add`, `parse_command` reads
-the options before the command into a struct and splits argv at the command:
+For a program with commands, such as `git remote add`, `parse_command`
+reads the options before the command into a struct and splits argv at the
+command:
 
 ```goose
 let result, command, sub_argv = meiryo::parse_command(global_options, argv, global_opts);
@@ -176,21 +178,21 @@ if command == "status" {
 ```
 
 * The command is the first positional argument. An option's value is never
-  the command. A `--` before the command only ends the global options, so
-  the command may then start with `-`; a `--` meant for the command goes
-  after the command: `prog run -- --weird-file`.
-* `sub_argv` is argv from the command on, so `sub_argv[0]` is the command's
-  name and `sub_argv` can go to `parse_command` or `parse_into` again, which
-  is how a command with commands of its own is read.
-* With no command, or on an error, the command is `""` and `sub_argv` is
-  empty. A command that is not known is for the program to report.
-* The `at` of an error from parsing `sub_argv` counts in `sub_argv`, so pass
-  `sub_argv` to `format_error(message, result, sub_argv)`, not `argv`.
-* Options after the command are the command's own: `parse_command` stops at
-  the command and leaves them in `sub_argv`.
+  taken as the command.
+* A `--` before the command ends only the global options, so the command
+  may then start with `-`. To pass `--` to the command, put it after the
+  command: `prog run -- --weird-file`.
+* `parse_command` stops at the command. `sub_argv` is argv from the command
+  on, so `sub_argv[0]` is the command's name and the options after it are
+  the command's own. Pass `sub_argv` to `parse_into` to read them, or to
+  `parse_command` again for a command with commands of its own.
+* With no command, or on an error, `command` is `""` and `sub_argv` is
+  empty. The program must report an unknown command itself.
+* Because an error from parsing `sub_argv` has an `at` that counts in
+  `sub_argv`, pass `sub_argv`, not `argv`, to `format_error`.
 
-`examples/subcommand.goose` is a complete program, with a command under a
-command, and a `--help` that lists the commands.
+`examples/subcommand.goose` is a complete program. It has a command under
+a command, and a `--help` that lists the commands.
 
 ## API
 
@@ -218,12 +220,13 @@ fn format_help(out: u8[>..]&, program: const u8[:], opts: const Opt[:], position
 ```
 
 * `argv` is `args()` itself, or any array or slice of `u8[:]` or
-  `const u8[:]`, so tests can pass string literals. `argv[0]`, the program,
-  is skipped.
-* An error is reported at the option's argument, not at a value it took.
-* A `return` in an `each_arg` block leaves the function calling `each_arg`.
+  `const u8[:]`, so tests can pass string literals. meiryo skips
+  `argv[0]`, the program.
+* An error points at the option's argument, not at a value it took.
+* A `return` in an `each_arg` block leaves the function that called
+  `each_arg`.
 * `format_error` and `format_help` append text without a final line break,
-  as `print` adds one.
+  because `print` adds one.
 
 ## Tests
 
@@ -232,15 +235,15 @@ goose run test/meiryo_test.goose
 python test/abort_test.py
 ```
 
-`meiryo_test.goose` checks what parsing gives, and `abort_test.py` the
-mistakes in the program that abort. An abort stops the program, so
-`abort_test.py` runs each of those as a program of its own and checks its
-message. It finds goose through `--goose`, the `GOOSE` environment
+`meiryo_test.goose` checks the results of parsing. `abort_test.py` checks
+the mistakes in the program that abort. Because an abort stops the
+program, `abort_test.py` runs each case as a program of its own and checks
+its message. It finds goose through `--goose`, the `GOOSE` environment
 variable, or `PATH`.
 
 ## Not yet
 
-* Options given many times collected into a list (use `each_arg`).
-* Negative numbers as positional arguments: `-5` is read as an unknown
-  short option. Put `--` before them.
-* Required options are left to the program.
+* Lists for options given many times: use `each_arg` for now.
+* Negative numbers as positional arguments: meiryo reads `-5` as an
+  unknown short option. Put `--` before them.
+* Required options: the program must check them itself.
