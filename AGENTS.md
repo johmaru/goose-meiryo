@@ -14,7 +14,9 @@ file adds what an agent in particular should do.
   `each_arg` and the rest of the API in `README.md`) or a parsing behavior
   listed in `CONTRIBUTING.md`. Fixing a bug or a misleading message does not
   need asking, but say what changed.
-* Do not publish, tag or push.
+* Publish, tag or push only after asking the maintainer and getting a yes,
+  each time: say what will go where (the branch, the tag name, the
+  remote) before doing it.
 
 ## Verify, do not assume
 
