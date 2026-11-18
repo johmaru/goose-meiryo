@@ -13,8 +13,8 @@ meiryo copies a value only when a field's type asks for a copy.
 Import the package in your program's root file:
 
 ```goose
-import meiryo from "github.com/johmaru/goose-meiryo@<tag>";  // once it is published
-import meiryo from "../path/to/this/directory";               // or a local checkout
+import meiryo from "github.com/johmaru/goose-meiryo@v0.1.0";  // a tagged version
+import meiryo from "../path/to/this/directory";                // or a local checkout
 ```
 
 A minimal program:
@@ -22,7 +22,7 @@ A minimal program:
 ```goose
 import std;
 import os;
-import meiryo from "github.com/johmaru/goose-meiryo@<tag>";
+import meiryo from "github.com/johmaru/goose-meiryo@v0.1.0";
 
 let SPEC = """
     -h, --help          show this help
